@@ -1,3 +1,5 @@
+import { loadMidiFromUrl } from './midiUtils';
+
 export interface SongData {
   name: string,
   bpm: number,
@@ -5,7 +7,7 @@ export interface SongData {
   notes: { noteName: string, startAtBar: number, durationInBars: number }[],
 }
 
-export const songs = [
+export const songs: SongData[] = [
   {
     name: 'All-notes Demo',
     bpm: 160,
@@ -147,3 +149,17 @@ export const songs = [
     ],
   },
 ];
+
+// Function to add a new song from a MIDI URL
+export const addSongFromMidiUrl = async (url: string, name: string): Promise<SongData> => {
+  try {
+    console.log('Loading MIDI from URL:', url);
+    const songData = await loadMidiFromUrl(url, name);
+    console.log('MIDI loaded successfully:', songData);
+    songs.push(songData);
+    return songData;
+  } catch (error) {
+    console.error('Error adding song from MIDI URL:', error);
+    throw new Error(`Failed to add song from MIDI URL: ${error.message || 'Unknown error'}`);
+  }
+};

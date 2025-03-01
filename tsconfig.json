@@ -3,7 +3,10 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "jsx": "react-native",
+    "lib": ["es2016", "dom"],
+    "esModuleInterop": true
   },
   "extends": "expo/tsconfig.base",
   "include": ["global.d.ts", "**/*.ts", "**/*.tsx", "tailwind.config.js"]

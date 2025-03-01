@@ -2,9 +2,9 @@ import { Link } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Text, View, ScrollView } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { songs } from '@/utils/songs';
-import { cn } from '@/utils/utils';
-import MidiLoader from '@/components/MidiLoader';
+import { songs } from '../utils/songs';
+import { cn } from '../utils/utils';
+import MidiLoader from '../components/MidiLoader';
 import { useState, useEffect } from 'react';
 
 export default function App() {

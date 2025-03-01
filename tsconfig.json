@@ -6,8 +6,12 @@
     },
     "jsx": "react-native",
     "lib": ["es2016", "dom"],
-    "esModuleInterop": true
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "strict": false,
+    "allowSyntheticDefaultImports": true
   },
   "extends": "expo/tsconfig.base",
-  "include": ["global.d.ts", "**/*.ts", "**/*.tsx", "tailwind.config.js"]
+  "include": ["global.d.ts", "**/*.ts", "**/*.tsx", "tailwind.config.js", "src/types/*.d.ts"]
 }

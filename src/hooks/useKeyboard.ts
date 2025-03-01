@@ -3,8 +3,8 @@ import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { accidentalNames, keyNames, noteToKeyboardKey } from '../components/PianoKeyboard';
 import { PlayMode } from '../components/PlayingUI';
-import { SongData } from '@/utils/songs';
-import { countdownBars, getBarsFromTime, getTimeFromBars } from '@/utils/utils';
+import { SongData } from '../utils/songs';
+import { countdownBars, getBarsFromTime, getTimeFromBars } from '../utils/utils';
 
 const verbose = false;
 

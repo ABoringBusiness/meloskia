@@ -1,12 +1,14 @@
 import { SplashScreen, Stack } from 'expo-router';
+import { View } from 'react-native';
+
+// Import custom error boundary
+import ErrorBoundary from '../components/ErrorBoundary';
 
 // Import your global CSS file
 import '../../global.css';
 
-export {
-  // Catch any errors thrown by the Layout component.
-  ErrorBoundary,
-} from 'expo-router';
+// Export custom error boundary instead of the default one
+export { ErrorBoundary };
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 export const unstable_settings = {

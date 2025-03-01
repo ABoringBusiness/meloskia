@@ -17,12 +17,14 @@ const useKeyboard = ({
   songData,
   startGame,
   restart,
+  onNoteHit,
 }:{
   keyboardType: 'laptop' | 'midi', // TODO: Add midi keyboard support
   playMode: PlayMode,
   songData?: SongData,
-  startGame: (startMode: 'playing' | 'playback') => void,
+  startGame: (startMode: 'playing' | 'playback' | 'practice') => void,
   restart: () => void, // used for the escape key
+  onNoteHit?: (noteName: string, accuracy: number) => void, // Callback for scoring system
 }) => {
   // ==============================
   //      Keyboard State
@@ -97,9 +99,15 @@ const useKeyboard = ({
       else resartAndStopPlayingNotes();
     }
 
-    // Spacebar pressed (onKeyUp only, to avoid multiple restarts on key hold)
+    // Enter pressed (onKeyUp only, to avoid multiple restarts on key hold)
     if (e.code === 'Enter' && !keyDown) {
       if (playMode === 'start') startGame('playback');
+      else resartAndStopPlayingNotes();
+    }
+    
+    // P key pressed for practice mode
+    if (e.key === 'p' && !keyDown) {
+      if (playMode === 'start') startGame('practice');
       else resartAndStopPlayingNotes();
     }
 
@@ -221,6 +229,15 @@ const useKeyboard = ({
     // Start the notes that are now playing
     newNotesToPlay.forEach((note) => {
       const keyboardKey = noteToKeyboardKey[note.noteName];
+      const noteStart = note.startAtBar + countdownBars;
+      
+      // Calculate accuracy for scoring (how close to the perfect timing)
+      const accuracy = Math.abs(currentTimeInBars - noteStart);
+      
+      // Call the onNoteHit callback if provided
+      if (onNoteHit && playMode === 'playing') {
+        onNoteHit(note.noteName, accuracy);
+      }
 
       verbose && console.log(perfStart, 'Starting note:', note, keyboardKey);
       keyPressed(keyboardKey);
@@ -254,13 +271,13 @@ const useKeyboard = ({
     }
 
     // Looping on next animation frame
-    if (playMode === 'playback') {
+    if (playMode === 'playback' || playMode === 'practice') {
       autoPlayFrameAnimationRequest.current = requestAnimationFrame(autoPlayLooper);
     }
   };
 
   useEffect(() => {
-    if (playMode === 'playback') {
+    if (playMode === 'playback' || playMode === 'practice') {
       // Use animationFrames to detect when to play the next note
       autoPlayFrameAnimationRequest.current = requestAnimationFrame(autoPlayLooper);
     } else {

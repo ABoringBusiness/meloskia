@@ -21,11 +21,15 @@ import {
 } from '../utils/utils';
 import useKeyboard from '../hooks/useKeyboard';
 import KeyboardAudio from './KeyboardAudio';
-import { SongData } from '../utils/songs';
+import { SongData, generateDifficultyLevel } from '../utils/songs';
+import ScoreDisplay from './ScoreDisplay';
+import HitFeedback from './HitFeedback';
+import { ScoreState, initialScoreState, updateScore, calculateNoteScore, HitType } from '../utils/scoring';
+import DifficultySelector from './DifficultySelector';
 
 const verbose = false;
 
-export type PlayMode = 'start' | 'playing' | 'playback' | 'restart';
+export type PlayMode = 'start' | 'playing' | 'playback' | 'practice' | 'restart';
 
 const PlayingUI = ({
   songData,
@@ -38,27 +42,77 @@ const PlayingUI = ({
   const playingTimeout = useRef<NodeJS.Timeout>();
 
   const [playMode, setPlayMode] = useState<PlayMode>('start');
+  const [practiceSpeed, setPracticeSpeed] = useState<number>(0.5); // 50% speed
+  const [scoreState, setScoreState] = useState<ScoreState>(initialScoreState);
+  const [lastHitType, setLastHitType] = useState<HitType>(null);
+  const [hitPosition, setHitPosition] = useState({ x: 0, y: 0 });
+  const [currentDifficulty, setCurrentDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
+  const [currentSongData, setCurrentSongData] = useState<SongData>(songData);
+  
+  // Update song data when difficulty changes
+  useEffect(() => {
+    if (currentDifficulty !== 'medium') {
+      // Generate song with selected difficulty
+      const newSongData = generateDifficultyLevel(songData, currentDifficulty);
+      setCurrentSongData(newSongData);
+    } else {
+      // Use original song data for medium difficulty
+      setCurrentSongData(songData);
+    }
+  }, [currentDifficulty, songData]);
+  
   const restart = () => {
     setPlayMode('start');
+    setScoreState(initialScoreState);
     clearTimeout(playingTimeout.current);
   };
 
-  const startGame = (startMode: 'playing' | 'playback') => {
+  const startGame = (startMode: 'playing' | 'playback' | 'practice') => {
     setPlayMode(startMode);
 
     // TEMP: Allow the user to restart the game after the animation
+    const duration = startMode === 'practice' 
+      ? getTimeFromBars((songData) && (getDurationInBars(songData) + countdownBars), songData?.bpm) / practiceSpeed
+      : getTimeFromBars((songData) && (getDurationInBars(songData) + countdownBars), songData?.bpm);
+    
     playingTimeout.current = setTimeout(() => {
       setPlayMode('restart');
-    }, getTimeFromBars((songData) && (getDurationInBars(songData) + countdownBars), songData?.bpm));
+    }, duration);
   };
 
   // ==============================
   //    Keyboard Handler
 
+  // Function to handle note hits and update score
+  const handleNoteHit = (noteName: string, accuracy: number) => {
+    // Calculate hit type based on accuracy
+    const hitType = calculateNoteScore(accuracy);
+    
+    // Update score state
+    setScoreState(prevState => updateScore(prevState, hitType));
+    
+    // Set hit type for visual feedback
+    setLastHitType(hitType);
+    
+    // Set position for hit feedback (center of screen for now)
+    setHitPosition({
+      x: gameWidth / 2,
+      y: gameHeight / 3,
+    });
+    
+    // Clear hit type after animation
+    setTimeout(() => setLastHitType(null), 500);
+  };
+  
   const {
     keysState, keyPressed, releaseLastKey, playNotesFromBars,
   } = useKeyboard({
-    keyboardType: 'laptop', playMode, startGame, restart, songData,
+    keyboardType: 'laptop', 
+    playMode, 
+    songData: currentSongData, 
+    startGame, 
+    restart,
+    onNoteHit: handleNoteHit,
   });
 
   // ==============================
@@ -68,11 +122,15 @@ const PlayingUI = ({
   const noteRollY = useSharedValue(0);
   useEffect(() => {
     if (isGamePlaying(playMode)) {
-      const songDurationWithCountdown = getDurationInBars(songData) + countdownBars;
+      const songDurationWithCountdown = getDurationInBars(currentSongData) + countdownBars;
+      const duration = playMode === 'practice'
+        ? getTimeFromBars(songDurationWithCountdown, currentSongData.bpm) / practiceSpeed
+        : getTimeFromBars(songDurationWithCountdown, currentSongData.bpm);
+        
       noteRollY.value = withTiming(
-        getDistFromBars(songDurationWithCountdown, songData.bpm),
+        getDistFromBars(songDurationWithCountdown, currentSongData.bpm),
         {
-          duration: getTimeFromBars(songDurationWithCountdown, songData.bpm),
+          duration,
           easing: Easing.linear,
         },
       );
@@ -82,7 +140,7 @@ const PlayingUI = ({
       });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [playMode]);
+  }, [playMode, practiceSpeed]);
 
   // CTA Animation
   const height = useSharedValue(0);
@@ -96,7 +154,7 @@ const PlayingUI = ({
       height.value = 0;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [songData.name]);
+  }, [currentSongData.name]);
 
   // ===========================
   //        Scroll (web)
@@ -113,7 +171,7 @@ const PlayingUI = ({
 
     const translateX = noteRollY.value - scrolledVerticallyBy;
     // Set the limit as the end of the song
-    const translateEndLimit = getDistFromBars(getDurationInBars(songData) + countdownBars, songData.bpm) + 20;
+    const translateEndLimit = getDistFromBars(getDurationInBars(currentSongData) + countdownBars, currentSongData.bpm) + 20;
     verbose && console.log('Scrolled!', scrolledVerticallyBy, translateX, noteRollY.value);
 
     // If we're in the boundaries
@@ -122,7 +180,7 @@ const PlayingUI = ({
       noteRollY.value = translateX;
 
       // Play the notes as we scroll
-      const currentTimeInBars = getBarsFromDist(translateX, songData.bpm);
+      const currentTimeInBars = getBarsFromDist(translateX, currentSongData.bpm);
       verbose && console.log('Scrolling', currentTimeInBars, translateX);
       playNotesFromBars(currentTimeInBars);
     }
@@ -143,24 +201,48 @@ const PlayingUI = ({
       };
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [songData, playMode]);
+  }, [currentSongData, playMode]);
 
   // ==============================
   //    CTAs
 
-  const renderWebCTAs = () => (<Animated.View
+  const renderWebCTAs = () => (<View
     className="flex absolute bottom-[200px] w-full h-0 bg-neutral-950/70 overflow-hidden"
-    style={{ height }}
+    style={{ height: height.value }}
   >
     { (playMode === 'start') ? <>
       <Text className="text-white text-lg text-center mt-5">Press Spacebar to start playing</Text>
-      <Text className="text-neutral-400 text-regular text-center mb-5">Press Enter if you're feeling lazy. Or simply Scroll away.</Text>
+      <Text className="text-neutral-400 text-regular text-center">Press Enter if you're feeling lazy. Or simply Scroll away.</Text>
+      <Text className="text-cyan-400 text-regular text-center mb-5">Press 'P' for practice mode.</Text>
     </> : <Text className="text-white text-lg text-center my-5">Press Spacebar or Enter to restart.</Text> }
-  </Animated.View>);
+    
+    {playMode === 'practice' && renderPracticeModeControls()}
+  </View>);
 
-  const renderMobileCTAs = () => (<Animated.View
+  // Practice mode controls
+  const renderPracticeModeControls = () => (
+    <View className="mt-4 w-full">
+      <Text className="text-white text-center mb-2">Practice Speed: {Math.round(practiceSpeed * 100)}%</Text>
+      <View className="flex-row justify-center">
+        <Pressable 
+          className="bg-cyan-600 px-4 py-2 rounded-l-md"
+          onPress={() => setPracticeSpeed(Math.max(0.25, practiceSpeed - 0.25))}
+        >
+          <Text className="text-white">Slower</Text>
+        </Pressable>
+        <Pressable 
+          className="bg-cyan-600 px-4 py-2 rounded-r-md ml-1"
+          onPress={() => setPracticeSpeed(Math.min(1, practiceSpeed + 0.25))}
+        >
+          <Text className="text-white">Faster</Text>
+        </Pressable>
+      </View>
+    </View>
+  );
+
+  const renderMobileCTAs = () => (<View
     className="absolute bottom-[200px] left-0 w-full pb-10"
-    style={{ height }}
+    style={{ height: height.value }}
   >
     <Pressable onPress={() => ((playMode === 'start') ? startGame('playing') : restart()) }>
       <LinearGradient
@@ -175,13 +257,27 @@ const PlayingUI = ({
       </LinearGradient>
     </Pressable>
 
-    { (playMode === 'start') && <Pressable
-      className="content-center items-center rounded-lg py-3"
-      onPress={() => startGame('playback')}
-    >
-        <Text className="text-neutral-400 text-lg">Feeling lazy?</Text>
-    </Pressable>}
-  </Animated.View>);
+    { (playMode === 'start') && (
+      <>
+        <Pressable
+          className="content-center items-center rounded-lg py-3"
+          onPress={() => startGame('playback')}
+        >
+          <Text className="text-neutral-400 text-lg">Feeling lazy?</Text>
+        </Pressable>
+        
+        <Pressable
+          className="content-center items-center rounded-lg py-3"
+          onPress={() => startGame('practice')}
+        >
+          <Text className="text-cyan-400 text-lg">Practice Mode</Text>
+        </Pressable>
+      </>
+    )}
+    
+    {/* Practice mode controls */}
+    {playMode === 'practice' && renderPracticeModeControls()}
+  </View>);
 
   const renderCTAs = () => (<>
     { (Platform.OS === 'web') ? renderWebCTAs() : renderMobileCTAs()}
@@ -197,13 +293,43 @@ const PlayingUI = ({
   //    Skia Canvas
 
   if (songData) {
+    // Calculate total notes for scoring
+    const totalNotes = currentSongData.notes.length;
+    
+    // Available difficulties
+    const availableDifficulties: ('easy' | 'medium' | 'hard')[] = ['easy', 'medium', 'hard'];
+    
     return (
       <View className="flex-1">
         {/* Start button, centered on the screen */}
         { !isGamePlaying(playMode) && ((Platform.OS === 'web') ? renderCTAs() : renderMobileCTAs()) }
 
+        {/* Difficulty selector - only show when not playing */}
+        {playMode === 'start' && (
+          <View style={{ position: 'absolute', top: 60, width: '100%', zIndex: 10 }}>
+            <DifficultySelector
+              currentDifficulty={currentDifficulty}
+              onSelectDifficulty={setCurrentDifficulty}
+              availableDifficulties={availableDifficulties}
+            />
+          </View>
+        )}
+
+        {/* Score display */}
+        <ScoreDisplay 
+          scoreState={scoreState} 
+          isGameOver={playMode === 'restart'} 
+          totalNotes={totalNotes} 
+        />
+        
+        {/* Hit feedback */}
+        <HitFeedback 
+          hitType={lastHitType} 
+          position={hitPosition} 
+        />
+        
         {/* Piano sound */}
-        <KeyboardAudio {...{ playMode, keysState, songData }} />
+        <KeyboardAudio {...{ playMode, keysState, songData: currentSongData }} />
 
         <GestureDetector gesture={getOnPressKeyboardGestureHandler(keyPressed, releaseLastKey)}>
           <Canvas style={{ width: screenWidth, height: screenHeight }}>
@@ -213,9 +339,9 @@ const PlayingUI = ({
               { translateY: (screenHeight - gameHeight) / 2 },
             ]}>
               <NoteRoll {...{
-                playMode, keysState, songData, noteRollY,
+                playMode, keysState, songData: currentSongData, noteRollY,
               }} />
-              <PianoKeyboard keysState={keysState} songName={songData.name} />
+              <PianoKeyboard keysState={keysState} songName={currentSongData.name} />
             </Group>
           </Canvas>
         </GestureDetector>

@@ -29,6 +29,9 @@ export default function Root({ children }: { children: React.ReactNode }) {
         {/* Add midi-parser-js script for MIDI file parsing */}
         <script src="https://cdn.jsdelivr.net/npm/midi-parser-js@4.0.4/src/midi-parser.min.js"></script>
 
+        {/* Fix for color scheme error */}
+        <script src="/patchColorScheme.js"></script>
+
         {/* Using raw CSS styles as an escape-hatch to ensure the background color never flickers in dark-mode. */}
         {/* eslint-disable-next-line @typescript-eslint/no-use-before-define */}
         <style dangerouslySetInnerHTML={{ __html: responsiveBackground }} />
@@ -39,6 +42,8 @@ export default function Root({ children }: { children: React.ReactNode }) {
   );
 }
 
+
+
 const responsiveBackground = `
 body {
   background-color: #fff;
@@ -47,4 +52,8 @@ body {
   body {
     background-color: #000;
   }
-}`;
+}
+body.dark {
+  background-color: #000;
+}
+`;

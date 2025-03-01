@@ -12,6 +12,7 @@ const MidiLoader: React.FC<MidiLoaderProps> = ({ onSongAdded }) => {
   const [url, setUrl] = useState('');
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [generateDifficulties, setGenerateDifficulties] = useState(true);
 
   const handleLoadMidi = async () => {
     if (!url) {
@@ -33,8 +34,8 @@ const MidiLoader: React.FC<MidiLoaderProps> = ({ onSongAdded }) => {
         throw new Error('URL must start with http:// or https://');
       }
       
-      // Try to load the MIDI file
-      await addSongFromMidiUrl(url, name);
+      // Try to load the MIDI file with difficulty levels
+      await addSongFromMidiUrl(url, name, generateDifficulties);
       
       // Clear the form and notify the user
       setUrl('');
@@ -76,12 +77,29 @@ const MidiLoader: React.FC<MidiLoaderProps> = ({ onSongAdded }) => {
       
       <Text className="text-sm text-neutral-400 mb-1">MIDI File URL</Text>
       <TextInput
-        className="w-full bg-neutral-800 text-white p-2 rounded-md mb-4"
+        className="w-full bg-neutral-800 text-white p-2 rounded-md mb-2"
         value={url}
         onChangeText={setUrl}
         placeholder="Enter MIDI file URL"
         placeholderTextColor="#666"
       />
+      
+      <View className="flex-row items-center mb-4">
+        <TouchableOpacity
+          onPress={() => setGenerateDifficulties(!generateDifficulties)}
+          className="mr-2"
+        >
+          <View className={cn(
+            "w-5 h-5 border rounded",
+            generateDifficulties ? "bg-cyan-600 border-cyan-600" : "bg-neutral-800 border-neutral-600"
+          )}>
+            {generateDifficulties && (
+              <Text className="text-white text-center">✓</Text>
+            )}
+          </View>
+        </TouchableOpacity>
+        <Text className="text-neutral-400">Generate difficulty levels</Text>
+      </View>
       
       <TouchableOpacity
         className={cn(

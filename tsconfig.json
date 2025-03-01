@@ -2,10 +2,15 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": [
+        "./src/*"
+      ]
     },
     "jsx": "react-native",
-    "lib": ["es2016", "dom"],
+    "lib": [
+      "es2016",
+      "dom"
+    ],
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
@@ -13,5 +18,12 @@
     "allowSyntheticDefaultImports": true
   },
   "extends": "expo/tsconfig.base",
-  "include": ["global.d.ts", "**/*.ts", "**/*.tsx", "tailwind.config.js", "src/types/*.d.ts"]
+  "include": [
+    "global.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    "tailwind.config.js",
+    "src/types/*.d.ts",
+    "nativewind-env.d.ts"
+  ]
 }

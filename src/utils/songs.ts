@@ -5,7 +5,73 @@ export interface SongData {
   bpm: number,
   durationInBars?: number,
   notes: { noteName: string, startAtBar: number, durationInBars: number }[],
+  difficulty?: 'easy' | 'medium' | 'hard',
 }
+
+/**
+ * Generate a song with a specific difficulty level
+ * @param song Original song data
+ * @param difficulty Difficulty level to generate
+ * @returns New song data with the specified difficulty
+ */
+export const generateDifficultyLevel = (
+  song: SongData, 
+  difficulty: 'easy' | 'medium' | 'hard'
+): SongData => {
+  // Create a copy of the song
+  const newSong: SongData = {
+    ...song,
+    name: `${song.name} (${difficulty.charAt(0).toUpperCase() + difficulty.slice(1)})`,
+    difficulty,
+  };
+  
+  // Modify notes based on difficulty
+  if (difficulty === 'easy') {
+    // For easy, remove some notes to make it simpler
+    // Keep only every other note, and make durations slightly longer
+    newSong.notes = song.notes
+      .filter((_, index) => index % 2 === 0)
+      .map(note => ({
+        ...note,
+        durationInBars: Math.min(note.durationInBars * 1.2, note.durationInBars + 0.25),
+      }));
+  } else if (difficulty === 'medium') {
+    // Medium is the default, just copy the notes
+    newSong.notes = [...song.notes];
+  } else if (difficulty === 'hard') {
+    // For hard, add more notes or make existing notes shorter
+    newSong.notes = song.notes.map(note => ({
+      ...note,
+      durationInBars: Math.max(note.durationInBars * 0.8, 0.25), // Make notes shorter but not too short
+    }));
+    
+    // Add some additional notes
+    const additionalNotes = song.notes
+      .filter(note => note.durationInBars > 0.5)
+      .map(note => ({
+        noteName: note.noteName,
+        startAtBar: note.startAtBar + note.durationInBars / 2,
+        durationInBars: Math.max(note.durationInBars / 4, 0.25),
+      }));
+    
+    newSong.notes = [...newSong.notes, ...additionalNotes].sort((a, b) => a.startAtBar - b.startAtBar);
+  }
+  
+  return newSong;
+};
+
+/**
+ * Generate all difficulty levels for a song
+ * @param song Original song data
+ * @returns Array of songs with different difficulty levels
+ */
+export const generateAllDifficultyLevels = (song: SongData): SongData[] => {
+  return [
+    { ...song, name: `${song.name} (Medium)`, difficulty: 'medium' },
+    generateDifficultyLevel(song, 'easy'),
+    generateDifficultyLevel(song, 'hard'),
+  ];
+};
 
 export const songs: SongData[] = [
   {
@@ -151,13 +217,26 @@ export const songs: SongData[] = [
 ];
 
 // Function to add a new song from a MIDI URL
-export const addSongFromMidiUrl = async (url: string, name: string): Promise<SongData> => {
+export const addSongFromMidiUrl = async (
+  url: string, 
+  name: string,
+  generateDifficulties: boolean = true
+): Promise<SongData[]> => {
   try {
     console.log('Loading MIDI from URL:', url);
     const songData = await loadMidiFromUrl(url, name);
     console.log('MIDI loaded successfully:', songData);
-    songs.push(songData);
-    return songData;
+    
+    if (generateDifficulties) {
+      // Generate all difficulty levels
+      const allDifficulties = generateAllDifficultyLevels(songData);
+      songs.push(...allDifficulties);
+      return allDifficulties;
+    } else {
+      // Just add the original song
+      songs.push(songData);
+      return [songData];
+    }
   } catch (error) {
     console.error('Error adding song from MIDI URL:', error);
     throw new Error(`Failed to add song from MIDI URL: ${error.message || 'Unknown error'}`);

@@ -9,38 +9,64 @@ export const fetchMidiFile = async (url: string): Promise<ArrayBuffer> => {
   try {
     console.log('Fetching MIDI file from URL:', url);
     
-    // Try to use a CORS proxy if direct fetch fails
-    try {
-      const response = await axios.get(url, {
-        responseType: 'arraybuffer',
-      });
-      console.log('Successfully fetched MIDI file directly');
-      return response.data;
-    } catch (directError) {
-      console.warn('Direct fetch failed, trying with CORS proxy:', directError);
-      
-      // Try with CORS proxy
-      const corsProxyUrl = 'https://cors-anywhere.herokuapp.com/';
-      const proxyUrl = corsProxyUrl + url;
-      
-      const proxyResponse = await axios.get(proxyUrl, {
-        responseType: 'arraybuffer',
-        headers: {
-          'Origin': window.location.origin,
-        },
-      });
-      
-      console.log('Successfully fetched MIDI file with CORS proxy');
-      return proxyResponse.data;
+    // List of CORS proxies to try in order
+    const corsProxies = [
+      '', // Direct fetch (no proxy)
+      'https://api.allorigins.win/raw?url=',
+      'https://corsproxy.io/?',
+      'https://proxy.cors.sh/',
+    ];
+    
+    // Try each proxy in order until one works
+    let lastError = null;
+    for (const proxy of corsProxies) {
+      try {
+        const proxyUrl = proxy ? proxy + encodeURIComponent(url) : url;
+        console.log(`Trying with proxy: ${proxy || 'Direct fetch'}`);
+        
+        const response = await axios.get(proxyUrl, {
+          responseType: 'arraybuffer',
+          headers: proxy ? { 'Origin': window.location.origin } : {},
+          timeout: 10000, // 10 second timeout
+        });
+        
+        console.log(`Successfully fetched MIDI file with ${proxy || 'direct fetch'}`);
+        return response.data;
+      } catch (error) {
+        console.warn(`Failed with ${proxy || 'direct fetch'}:`, error);
+        lastError = error;
+      }
     }
+    
+    // If all proxies fail, throw the last error
+    throw lastError || new Error('Failed to fetch MIDI file with all available proxies');
   } catch (error) {
     console.error('Error fetching MIDI file:', error);
     throw new Error(`Failed to fetch MIDI file: ${error.message || 'Unknown error'}`);
   }
 };
 
+// Check if MidiParser is available
+const isMidiParserAvailable = (): boolean => {
+  return typeof window !== 'undefined' && 
+         typeof (window as any).MidiParser !== 'undefined';
+};
+
+// Function to ensure MidiParser is loaded
+const ensureMidiParserLoaded = (): void => {
+  if (!isMidiParserAvailable()) {
+    throw new Error('MidiParser library is not loaded. Please refresh the page and try again.');
+  }
+};
+
 // Function to parse a MIDI file and convert it to SongData format
 export const parseMidiToSongData = (midiData: ArrayBuffer, name: string): SongData => {
+  // Ensure MidiParser is loaded
+  ensureMidiParserLoaded();
+  
+  // Get the MidiParser from the window object
+  const MidiParser = (window as any).MidiParser;
+  
   // Parse the MIDI data
   const midiFile = MidiParser.parse(new Uint8Array(midiData));
   
@@ -138,12 +164,26 @@ const midiNoteNumberToName = (noteNumber: number): string => {
 // Function to load a MIDI file from a URL and convert it to SongData
 export const loadMidiFromUrl = async (url: string, name: string): Promise<SongData> => {
   try {
+    // Validate URL
+    if (!url.match(/^https?:\/\/.+/i)) {
+      throw new Error('Invalid URL. Please enter a valid URL starting with http:// or https://');
+    }
+    
     console.log('Loading MIDI from URL:', url);
+    
+    // Fetch the MIDI file
     const midiData = await fetchMidiFile(url);
     console.log('MIDI data fetched, parsing...');
-    const songData = parseMidiToSongData(midiData, name);
-    console.log('MIDI parsed successfully:', songData);
-    return songData;
+    
+    // Parse the MIDI data
+    try {
+      const songData = parseMidiToSongData(midiData, name);
+      console.log('MIDI parsed successfully:', songData);
+      return songData;
+    } catch (parseError) {
+      console.error('Error parsing MIDI file:', parseError);
+      throw new Error(`Failed to parse MIDI file: ${parseError.message}. Please ensure this is a valid MIDI file.`);
+    }
   } catch (error) {
     console.error('Error loading MIDI file:', error);
     throw new Error(`Failed to load MIDI file: ${error.message || 'Unknown error'}`);

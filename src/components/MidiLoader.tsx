@@ -34,6 +34,11 @@ const MidiLoader: React.FC<MidiLoaderProps> = ({ onSongAdded }) => {
         throw new Error('URL must start with http:// or https://');
       }
       
+      // Check if MidiParser is available (web only)
+      if (Platform.OS === 'web' && typeof (window as any).MidiParser === 'undefined') {
+        throw new Error('MIDI parser library is not loaded. Please refresh the page and try again.');
+      }
+      
       // Try to load the MIDI file with difficulty levels
       await addSongFromMidiUrl(url, name, generateDifficulties);
       
@@ -47,16 +52,29 @@ const MidiLoader: React.FC<MidiLoaderProps> = ({ onSongAdded }) => {
       
       // Provide more detailed error messages based on the error type
       let errorMessage = error.message || 'Unknown error';
+      let errorTitle = 'Error';
       
       if (errorMessage.includes('CORS')) {
-        errorMessage = 'CORS error: The MIDI file server does not allow cross-origin requests. Try a different MIDI file URL.';
-      } else if (errorMessage.includes('Network Error')) {
-        errorMessage = 'Network error: Could not connect to the MIDI file server. Check your internet connection and try again.';
+        errorTitle = 'CORS Error';
+        errorMessage = 'The MIDI file server does not allow cross-origin requests. Try one of these options:\n\n' +
+                       '1. Try a different MIDI file URL\n' +
+                       '2. Download the MIDI file and host it on a CORS-friendly service\n' +
+                       '3. Use a MIDI file from a service that allows CORS';
+      } else if (errorMessage.includes('Network Error') || errorMessage.includes('timeout')) {
+        errorTitle = 'Network Error';
+        errorMessage = 'Could not connect to the MIDI file server. Check your internet connection and try again.';
       } else if (errorMessage.includes('404')) {
-        errorMessage = 'File not found: The MIDI file could not be found at the specified URL.';
+        errorTitle = 'File Not Found';
+        errorMessage = 'The MIDI file could not be found at the specified URL. Please check the URL and try again.';
+      } else if (errorMessage.includes('parse')) {
+        errorTitle = 'Parse Error';
+        errorMessage = 'The file at the URL is not a valid MIDI file or is corrupted. Please try a different MIDI file.';
+      } else if (errorMessage.includes('MidiParser')) {
+        errorTitle = 'Library Error';
+        errorMessage = 'The MIDI parser library is not loaded correctly. Please refresh the page and try again.';
       }
       
-      Alert.alert('Error', `Failed to load MIDI file: ${errorMessage}`);
+      Alert.alert(errorTitle, errorMessage);
     } finally {
       setLoading(false);
     }
@@ -76,6 +94,27 @@ const MidiLoader: React.FC<MidiLoaderProps> = ({ onSongAdded }) => {
       />
       
       <Text className="text-sm text-neutral-400 mb-1">MIDI File URL</Text>
+      <View className="mb-2">
+        <TouchableOpacity
+          onPress={() => {
+            // Set a sample MIDI file URL that is known to work
+            setUrl('https://bitmidi.com/uploads/90325.mid');
+            setName('Sample MIDI - Tetris Theme');
+          }}
+          className="bg-cyan-900 py-1 px-2 rounded-md self-start mb-1"
+        >
+          <Text className="text-xs text-white">Try Sample: Tetris Theme</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => {
+            setUrl('https://www.midiworld.com/download/4522');
+            setName('Sample MIDI - Mozart');
+          }}
+          className="bg-cyan-900 py-1 px-2 rounded-md self-start"
+        >
+          <Text className="text-xs text-white">Try Sample: Mozart</Text>
+        </TouchableOpacity>
+      </View>
       <TextInput
         className="w-full bg-neutral-800 text-white p-2 rounded-md mb-2"
         value={url}

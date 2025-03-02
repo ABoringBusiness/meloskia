@@ -28,6 +28,19 @@ export default function Root({ children }: { children: React.ReactNode }) {
 
         {/* Add midi-parser-js script for MIDI file parsing */}
         <script src="https://cdn.jsdelivr.net/npm/midi-parser-js@4.0.4/src/midi-parser.min.js"></script>
+        
+        {/* Fallback script for midi-parser-js */}
+        <script dangerouslySetInnerHTML={{ __html: `
+          // Check if MidiParser is loaded
+          if (typeof window !== 'undefined' && typeof window.MidiParser === 'undefined') {
+            console.warn('MidiParser not loaded from primary CDN, trying fallback...');
+            // Create a script element for the fallback
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/midi-parser-js@4.0.4/src/midi-parser.min.js';
+            script.async = true;
+            document.head.appendChild(script);
+          }
+        ` }} />
 
         {/* Fix for color scheme error */}
         <script src="/patchColorScheme.js"></script>
